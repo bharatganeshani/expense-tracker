@@ -11,12 +11,25 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # ------------------------------------
 
+# Validate environment variables
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("ERROR: SUPABASE_URL or SUPABASE_KEY not found in .env file!")
+    print("Please check your .env file contains:")
+    print("SUPABASE_URL=your_supabase_url")
+    print("SUPABASE_KEY=your_supabase_key")
+    exit(1)
+
 try:
+    # Create client - simpler is better
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("Successfully connected to Supabase!")
+    print("✅ Successfully connected to Supabase!")
 except Exception as e:
-    print(f"Error connecting to Supabase: {e}")
-    exit()
+    print(f"❌ Error connecting to Supabase: {e}")
+    print("Please check:")
+    print("1. Your internet connection")
+    print("2. SUPABASE_URL and SUPABASE_KEY are correct")
+    print("3. Supabase project is active")
+    exit(1)
 
 # --- 2. DEFINE YOUR FUNCTIONS ---
 
@@ -32,7 +45,7 @@ def store_expense(category, amount, note):
     try:
         if not category or not amount:
             print("Error: Category and amount are required!")
-            return
+            return False
             
         data = {
             "time": datetime.datetime.now().isoformat(),
@@ -41,39 +54,67 @@ def store_expense(category, amount, note):
             "note": note.strip() if note else ""
         }
         print("Attempting to store expense...")
-        response = supabase.table("labels").insert(data).execute()
-        if response.data:
-            print(f"\nSuccessfully stored expense!")
-            print(f"Debug info: {response.data}")  # This will help see what's being returned
-        else:
-            print("Warning: No data returned from insert operation")
+        
+        # Add retry logic for transient network issues
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = supabase.table("labels").insert(data).execute()
+                if response.data:
+                    print(f"✅ Successfully stored expense!")
+                    print(f"Debug info: {response.data}")
+                    return True
+                else:
+                    print("⚠️ Warning: No data returned from insert operation")
+                    return False
+            except Exception as retry_error:
+                if attempt < max_retries - 1:
+                    print(f"⚠️ Retry {attempt + 1}/{max_retries}...")
+                    import time
+                    time.sleep(1)
+                else:
+                    raise retry_error
+                    
     except ValueError as e:
-        print(f"Error with data format: {e}")
+        print(f"❌ Error with data format: {e}")
+        return False
     except Exception as e:
-        print(f"Error storing expense: {e}")
+        print(f"❌ Error storing expense: {e}")
         print(f"Debug info - Data attempted to store: {data}")
+        return False
 
 def fetch_all_expenses():
     """
     Fetches all expenses from the 'labels' table, ordered by time.
     """
     try:
-        # Select from your 'labels' table
-        response = supabase.table("labels").select("*").order("time", desc=True).execute()
-        print("\n--- All Expenses ---")
-        if response.data:
-            for row in response.data:
-                # Use your column names: label, time, category, amount, note
-                print(f"ID: {row['label']}")
-                print(f"  Time: {row['time']}")
-                print(f"  Category: {row['category']}")
-                print(f"  Amount: {format_inr(row['amount'])}")
-                print(f"  Note: {row['note']}\n")
-        else:
-            print("No expenses found.")
-        return response.data
+        # Add retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = supabase.table("labels").select("*").order("time", desc=True).execute()
+                print("\n--- All Expenses ---")
+                if response.data:
+                    for row in response.data:
+                        # Use your column names: label, time, category, amount, note
+                        print(f"ID: {row['label']}")
+                        print(f"  Time: {row['time']}")
+                        print(f"  Category: {row['category']}")
+                        print(f"  Amount: {format_inr(row['amount'])}")
+                        print(f"  Note: {row['note']}\n")
+                else:
+                    print("No expenses found.")
+                return response.data
+            except Exception as retry_error:
+                if attempt < max_retries - 1:
+                    print(f"⚠️ Database query retry {attempt + 1}/{max_retries}...")
+                    import time
+                    time.sleep(1)
+                else:
+                    raise retry_error
     except Exception as e:
-        print(f"Error fetching expenses: {e}")
+        print(f"❌ Error fetching expenses: {e}")
+        print("Please check your internet connection and Supabase status.")
         return None
 
 def update_expense(label_id, new_data):
