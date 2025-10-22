@@ -1,11 +1,13 @@
 import datetime
 from supabase import create_client, Client
+import dotenv
+import os
 
 # --- 1. CONNECT TO SUPABASE ---
 # This is how it should look after you paste your links:
-
-SUPABASE_URL = "https://qqorwqcyvdvgkshrplwr.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxb3J3cWN5dmR2Z2tzaHJwbHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNzMwMDIsImV4cCI6MjA3NjY0OTAwMn0.Z9RJ4FrTC2Ve2oqBl4Wa0Um0cB9bOJQSWkOLADO_Vsg"
+dotenv.load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # ------------------------------------
 
